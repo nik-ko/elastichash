@@ -5,7 +5,12 @@ from elastichash import ElasticHash
 
 
 def get_es_url_from_env():
-    return "http://%s:%s@%s:%s" % (environ["ES_USER"], environ["ES_PASS"], environ["ES_HOST"], environ["ES_PORT"])
+    if environ["ES_HTTPS"] is not None and environ["ES_HTTPS"]:
+        protocol = "https"
+    else:
+        protocol = "http"
+    return "%s://%s:%s@%s:%s" % (
+    protocol, environ["ES_USER"], environ["ES_PASS"], environ["ES_HOST"], environ["ES_PORT"])
 
 
 def search_id(es: Elasticsearch, eh: ElasticHash, query: Dict = {'match_all': {}}):
