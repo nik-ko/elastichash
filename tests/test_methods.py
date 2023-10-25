@@ -6,7 +6,7 @@ from random import choices
 from time import sleep
 
 from elastichash import ElasticHash
-from tests.helpers import in_results, get_es_url_from_env
+from helpers import in_results, get_es_url_from_env
 from elastichash.util import int2binstr
 
 
