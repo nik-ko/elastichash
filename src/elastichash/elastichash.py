@@ -6,7 +6,7 @@ import tempfile
 import urllib3
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan, bulk
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Union
 from elastichash.templates import index_json, query_json
 from elastichash.util import get_nbs, nbs_masks, binstr2uint, binstr2int, int2binstr, correlation, \
     compute_perm, subcodes2bincode, plot_hist, plot_corr, code_array
@@ -20,10 +20,10 @@ class ElasticHash:
         """
         Extend Elasticsearch for efficient similarity search based on binary codes.
 
-        :param es: instance of a :class: `elasticsearch.Elasticsearch` client
-        :type es: class: `elasticsearch.Elasticsearch`
-        :param additional_fields: list of additional fields used in the index, defaults to ' ["image_path"]
-        :param index_prefix: a prefix used for ElasticHash indices and functions, defaults to `es`
+        :param es: instance of a :class:`elasticsearch.Elasticsearch` client
+        :type es: :class:`elasticsearch.Elasticsearch`
+        :param additional_fields: list of additional fields used in the index, defaults to ``["image_path"]``
+        :param index_prefix: a prefix used for ElasticHash indices and functions, defaults to ``es``
         """
         self.num_lines_per_request = 500
         self.num_decorrelate = 10000
@@ -172,7 +172,7 @@ class ElasticHash:
         self._remove_blocks(temp_index_name)
         self.es.indices.delete(index=temp_index_name)
 
-    def _get_fields(self, vec: Optional[Union[str, np.ndarray, List[int]]]):
+    def _get_fields(self, vec: Union[str, np.ndarray, List[int]]):
         if type(vec) is np.ndarray:
             if vec.ndim == 1 and vec.shape[0] == 4:
                 binstr = list(map(int, "".join(list(map(int2binstr, vec)))))
@@ -215,13 +215,20 @@ class ElasticHash:
         }
         return fields
 
-    def add(self, vec: Optional[Union[str, np.ndarray, List[int]]], additional_fields: Dict[str, Any] = None):
+    def add(self, vec: Union[str, np.ndarray, List[int]], additional_fields: Dict[str, Any] = None):
         """
         Add a code to the index, optionally along with additional fields. The code needs to be 256 bits long (0 or 1).
         A code can also be represented as a list or numpy array of 4 integer values.
         It can be either string, list of int or numpy array.
 
-        :param vec: a binary hashcode of length 256, or represented as 4 integers
+        Usage examples:
+
+            ``add_vec(code='010...0', additional_fields={'image_path':'/path/to/image.jpg')``
+            ``add_vec(code=[0,1,0,...,0])``
+            ``add_vec(np.array([0,1,0,...,0])``
+            ``add_vec(np.array([10,20,-10,-20])``
+
+        :param vec: a binary code of length 256, or represented as 4 integers
         :param additional_fields: a dictionary of field name and value pairs that should also be stored in the index
         """
         if additional_fields is not None and type(additional_fields) is not dict:
@@ -232,22 +239,25 @@ class ElasticHash:
         batch = [fields]
         self._bulk(batch, self.index_name)
 
-    def add_bulk(self, vecs: List[Optional[Union[str, np.ndarray, List[int]]]],
+    def add_bulk(self, vecs: Union[List[Union[str, np.ndarray, List[int]]], np.ndarray],
                  additional_fields: List[Dict[str, Any]] = None):
         """
-        Add a list of codes optinally together with a corresponding list of dictionaries with additional fields. If a
-        list of additional fields is given, it must have the same length as the list of codes.
-        The codes in the list can be either string, a list of int or numpy array.
+        Add a list or numpy array of codes, optionally together with a corresponding list of dictionaries with
+        additional fields. If a list of additional fields is given, it must have the same length as the list of codes.
+        A code can be either string, a list of int or numpy array.
 
         :param vecs: a list of codes
         :param additional_fields: list of additional fields for the codes
         """
         batch = []
+        if type(vecs) is not list and type(vecs) is not np.ndarray:
+            raise TypeError("Codes need to be a lists or numpy array")
+
         if additional_fields is not None:
-            if type(additional_fields) is not dict:
-                raise TypeError("Additional fields need to be a dictionary")
+            if type(additional_fields) is not list:
+                raise TypeError("Additional fields need to be a list of dictionaries")
             if len(vecs) != len(additional_fields):
-                raise ValueError("Each vector needs a (possibly empty) dict of additional fields, or none")
+                raise ValueError("Each code needs a (possibly empty) dict of additional fields, or none")
             for vec, fields in zip(vecs, additional_fields):
                 doc = self._get_fields(vec)
                 doc.update(fields)
@@ -256,7 +266,7 @@ class ElasticHash:
             batch = [self._get_fields(vec) for vec in vecs]
         self._bulk(batch, self.index_name)
 
-    def update(self, id: int, vec: Optional[Union[str, np.ndarray, List[int]]] = None,
+    def update(self, id: int, vec: Union[str, np.ndarray, List[int]] = None,
                additional_fields: Dict[str, Any] = None):
         """
         Update a document in the index by its id. Updates the code or updates additional fields of the document, or both.
@@ -264,7 +274,7 @@ class ElasticHash:
         A code can also be represented as a list or numpy array of 4 integer values.
 
         :param id: id of the document to be updated
-        :param vec: the new binary hashcode of length 256, or represented as 4 integers
+        :param vec: the new binary code of length 256, or represented as 4 integers
         :param additional_fields: a dictionary of field name and value pairs that should also be stored in the index
         """
         if additional_fields is not None and type(additional_fields) is not dict:
@@ -276,13 +286,13 @@ class ElasticHash:
             doc.update(additional_fields)
         self.es.update(index=self.index_name, id=id, doc=doc)
 
-    def search(self, vec: Optional[Union[str, np.ndarray, List[int]]]) -> Dict:
+    def search(self, vec: Union[str, np.ndarray, List[int]]) -> Dict:
         """
         Search a document with the given code in the index. The code needs to be 256 bits long (0 or 1). It can be
         either string, list of int or numpy array.
         A code can also be represented as a list or numpy array of 4 integer values.
 
-        :param vec: a binary hashcode of length 256, or represented as 4 integers
+        :param vec: a binary code of length 256, or represented as 4 integers
         :param additional_fields: a dictionary of field name and value pairs that should also be stored in the index
         """
         if not self.is_decorrelated:
@@ -297,10 +307,10 @@ class ElasticHash:
         """
         After adding about 10,000 codes in the index the decorrelate method should be called. After rearranging the bit
         positions search may be significantly faster. The bit distribution and correlation matrix are plotted if a
-        `plot_dir` is specified. The number of samples `num_samples` used for computing the correlation should not be to
-        high (i.e. not higher than 10,000 as correlation computation is carried out in memory. Based on the correlation
-        a better permutation for the bits is computed. The permutation is applied only for all documents in the  index,
-        or in case of interruption, none. This is achieved by using a temporary copy of the retrieval index.
+        ``plot_dir`` is specified. The number of samples ``num_samples`` used for computing the correlation should not
+        be to high (i.e. not higher than 10,000 as correlation computation is carried out in memory). Based on the
+        correlation a better permutation for the bits is computed. The permutation is applied only for all documents in
+        the  index, or in case of interruption, none. This is achieved by using a temporary copy of the retrieval index.
         This step is also needed to find increase performance on the short codes as these are the most discriminative
         ones of the long codes. More details can be found in https://arxiv.org/abs/2305.04710
 

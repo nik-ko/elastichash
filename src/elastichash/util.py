@@ -20,7 +20,7 @@ def binstr2int(s: str) -> int:
     return b.int
 
 
-def int2binstr(s: Optional[Union[int, str]], length: int = 64) -> str:
+def int2binstr(s: Union[int, str], length: int = 64) -> str:
     """
     Convert an integer to a binary string
 
