@@ -44,6 +44,41 @@ class ElasticHashMethods(unittest.TestCase):
         results = self.eh.search(search_code)
         self.assertTrue(in_results("uuid", gen_uuid, results))
 
+    def test_add_bulk_numpy_int(self):
+        uids = [str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())]
+        data = [{"uuid": uid} for uid in uids]
+        codes = np.array([[0, 1, -1, -2], [1, 2, 3, 4], [5, 6, 7, 8]])
+        self.eh.add_bulk(codes, additional_fields=data)
+        sleep(10)
+        for code, uid in zip(codes, uids):
+            search_code = "".join(list(map(int2binstr, code)))
+            results = self.eh.search(search_code)
+            self.assertTrue(in_results("uuid", uid, results))
+
+    def test_add_bulk_list_int(self):
+        uids = [str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())]
+        data = [{"uuid": uid} for uid in uids]
+        codes = [[4, 1, -1, -2], [4, 2, 3, 4], [4, 6, 7, 8]]
+        self.eh.add_bulk(codes, additional_fields=data)
+        sleep(10)
+        for code, uid in zip(codes, uids):
+            search_code = "".join(list(map(int2binstr, code)))
+            results = self.eh.search(search_code)
+            self.assertTrue(in_results("uuid", uid, results))
+
+    def test_add_bulk_list_bin(self):
+        uids = [str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())]
+        data = [{"uuid": uid} for uid in uids]
+        codes = [choices([0, 1], weights=[1, 2], k=256),
+                 choices([0, 1], weights=[1, 2], k=256),
+                 choices([0, 1], weights=[1, 2], k=256)]
+        self.eh.add_bulk(codes, additional_fields=data)
+        sleep(10)
+        for code, uid in zip(codes, uids):
+            search_code = code
+            results = self.eh.search(search_code)
+            self.assertTrue(in_results("uuid", uid, results))
+
     def test_add_list_bin(self):
         gen_uuid = str(uuid.uuid4())
         data = {"uuid": gen_uuid}
