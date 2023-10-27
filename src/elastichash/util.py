@@ -217,10 +217,23 @@ def plot_hist(codes: np.ndarray[np.int8], output_path="./counts.png"):
     plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
 
 
-def parse_dists(es_result: ObjectApiResponse, normalize=False):
+def parse_scores(es_result: ObjectApiResponse, normalize=False, distance=True):
+    """
+    Extracts `_score` values from Elasticsearch result. Normalization can be applied and the similarity score can be
+    turned into a distance.
+    :param es_result: Elasticsearch result as dict
+    :tpye es_result: ObjectApiResponse
+    :param normalize: if score should be normalized
+    :type normalize: bool
+    :param distance: if similarity score should be turned into a distance
+    :type distance: bool
+    :return:
+    """
     scores = []
     for item in es_result["hits"]["hits"]:
-        score = float(item["_source"]["_score"])
+        score = float(item["_score"])
+        if distance:
+            score = 265 - score
         if normalize:
             score /= 256
         scores.append(score)
