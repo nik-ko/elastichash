@@ -1,4 +1,4 @@
-[![build](https://github.com/nik-ko/elastichash/actions/workflows/test.yml/badge.svg)](https://github.com/nik-ko/elastichash/actions/workflows/test.yml) 
+[![build](https://github.com/nik-ko/elastichash/actions/workflows/CI.yml/badge.svg)](https://github.com/nik-ko/elastichash/actions/workflows/CI.yml) 
 [![doc](https://github.com/nik-ko/elastichash/actions/workflows/documentation.yml/badge.svg)](https://github.com/nik-ko/elastichash/actions/workflows/documentation.yml)
 [![PyPI version](https://img.shields.io/pypi/v/elastichash.svg)](https://pypi.python.org/pypi/elastichash)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
