@@ -20,7 +20,8 @@ logger = logging.Logger('elastichash')
 
 
 class ElasticHash:
-    def __init__(self, es: Elasticsearch, additional_fields: List[str] = ["image_path"], index_prefix: str = 'eh'):
+    def __init__(self, es: Elasticsearch, additional_fields: List[str] = ["image_path"], index_prefix: str = 'eh',
+                 shards=1, replicas=1):
         """
         Extend Elasticsearch for efficient similarity search based on binary codes.
 
@@ -30,6 +31,10 @@ class ElasticHash:
         :type additional_fields: List[str]
         :param index_prefix: a prefix used for ElasticHash indices and functions, defaults to ``es``
         :type index_prefix: str
+        :param shards: number of shards for ElasticHash indices
+        :type shards: int
+        :param replicas: number of replicas for ElasticHash indices
+        :type replicas: int
         """
         self.num_lines_per_request = 500
         self.num_decorrelate = 10000
@@ -39,6 +44,9 @@ class ElasticHash:
         self.nbs_index_name = "%s-nbs" % index_prefix
         self.index_name = "%s-retrieval" % index_prefix
         self.script_name = "%s-hd64" % index_prefix
+
+        self.settings = {"index": {"number_of_replicas": replicas, "number_of_shards": shards}}
+
         self.additional_fields = additional_fields
         self._add_hdist()
         if not self.es.indices.exists(index=self.index_name):
@@ -61,11 +69,11 @@ class ElasticHash:
             mappings = index_json(data_fields)
         else:
             mappings = index_json({})
-        self.es.indices.create(index=self.index_name, mappings=mappings)
+        self.es.indices.create(index=self.index_name, mappings=mappings, settings=self.settings)
 
     def _create_nbs_index(self):
         mapping = {"properties": {"nbs": {"type": "keyword"}, }}
-        self.es.indices.create(index=self.nbs_index_name, mappings=mapping)
+        self.es.indices.create(index=self.nbs_index_name, mappings=mapping, settings=self.settings)
         sc_len = 16
         num_neighbors = 2 ** sc_len
         ids = range(num_neighbors)
@@ -304,6 +312,11 @@ class ElasticHash:
         Search a document with the given code in the index. The code needs to be 256 bits long (0 or 1). It can be
         either string, list of int or numpy array.
         A code can also be represented as a list or numpy array of 4 integer values.
+
+        The `_score` value for a document :math:`d` in the results is a similarity score to the query vector :math:`q `
+        based on Hamming distance :math:`H`. It is the number of common bits, i.e. :math:`256-H(q,d)`.
+
+        Use :func:`util.parse_dists` to turn similarities into distances and or/normalize them.
 
         :param vec: a binary code of length 256, or represented as 4 integers
         :type vec: Union[str, np.ndarray, List[int]]
