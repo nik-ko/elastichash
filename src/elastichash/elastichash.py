@@ -313,7 +313,7 @@ class ElasticHash:
         either string, list of int or numpy array.
         A code can also be represented as a list or numpy array of 4 integer values.
 
-        The `_score` value for a document :math:`d` in the results is a similarity score to the query vector :math:`q `
+        The `_score` value for a document :math:`d` in the results is a similarity score to the query vector :math:`q`
         based on Hamming distance :math:`H`. It is the number of common bits, i.e. :math:`256-H(q,d)`.
 
         Use :func:`util.parse_dists` to turn similarities into distances and or/normalize them.
