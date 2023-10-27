@@ -16,7 +16,7 @@ print("Path:", sys.path)
 project = 'elastichash'
 copyright = '2023, Nikolaus Korfhage'
 author = 'Nikolaus Korfhage'
-release = '0.1.0'
+release = '0.1.5'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
