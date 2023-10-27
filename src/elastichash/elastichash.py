@@ -368,7 +368,7 @@ class ElasticHash:
             logger.warning("Could not compute correlation for %d bits" % num_invalid)
         perm = compute_perm(corr)
 
-        if len(perm) == 0:
+        if len(perm) < len(corr):
             self._init_perm()
             logger.warning("Could not compute correlation. Bit-permutation stays the same as before.")
             return False

@@ -10,4 +10,6 @@ Use the following methods to fill, update, reset and search the index.
 
 Some useful methods for parsing results.
 
-.. autofunction:: util::parse_scores
+.. currentmodule:: elastichash.util
+
+.. autofunction:: parse_scores
