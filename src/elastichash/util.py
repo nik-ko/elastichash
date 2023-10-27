@@ -221,8 +221,9 @@ def parse_scores(es_result: ObjectApiResponse, normalize=False, distance=True):
     """
     Extracts `_score` values from Elasticsearch result. Normalization can be applied and the similarity score can be
     turned into a distance.
+
     :param es_result: Elasticsearch result as dict
-    :tpye es_result: ObjectApiResponse
+    :type es_result: ObjectApiResponse
     :param normalize: if score should be normalized
     :type normalize: bool
     :param distance: if similarity score should be turned into a distance
