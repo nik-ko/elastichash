@@ -1,5 +1,5 @@
 from elasticsearch import Elasticsearch
-from typing import Dict, Any
+from typing import Dict
 from os import environ
 from elastichash import ElasticHash
 
@@ -19,13 +19,6 @@ def search_id(es: Elasticsearch, eh: ElasticHash, query: Dict = {'match_all': {}
     id = item["_id"]
     doc = item["_source"]
     return {"id": id, "doc": doc}
-
-
-def in_results(k: str, val: Any, res: Dict):
-    for item in res["hits"]["hits"]:
-        if item["_source"][k] == val:
-            return True
-    return False
 
 
 def index_size(es: Elasticsearch, index_name: str):

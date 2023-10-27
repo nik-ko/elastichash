@@ -4,15 +4,19 @@ import os
 import pickle as pkl
 import tempfile
 import urllib3
+from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan, bulk
 from typing import List, Dict, Any, Union
+
+from numpy.ma import count_masked
+
 from elastichash.templates import index_json, query_json
 from elastichash.util import get_nbs, nbs_masks, binstr2uint, binstr2int, int2binstr, correlation, \
     compute_perm, subcodes2bincode, plot_hist, plot_corr, code_array
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-logger = logging.getLogger('elasticsearch')
+logger = logging.Logger('elastichash')
 
 
 class ElasticHash:
@@ -23,7 +27,9 @@ class ElasticHash:
         :param es: instance of a :class:`elasticsearch.Elasticsearch` client
         :type es: :class:`elasticsearch.Elasticsearch`
         :param additional_fields: list of additional fields used in the index, defaults to ``["image_path"]``
+        :type additional_fields: List[str]
         :param index_prefix: a prefix used for ElasticHash indices and functions, defaults to ``es``
+        :type index_prefix: str
         """
         self.num_lines_per_request = 500
         self.num_decorrelate = 10000
@@ -229,7 +235,9 @@ class ElasticHash:
             ``add_vec(np.array([10,20,-10,-20])``
 
         :param vec: a binary code of length 256, or represented as 4 integers
+        :type vec: Union[str, np.ndarray, List[int]]
         :param additional_fields: a dictionary of field name and value pairs that should also be stored in the index
+        :type additional_fields: Dict[str, Any]
         """
         if additional_fields is not None and type(additional_fields) is not dict:
             raise TypeError("Additional fields need to be a dictionary")
@@ -247,7 +255,9 @@ class ElasticHash:
         A code can be either string, a list of int or numpy array.
 
         :param vecs: a list of codes
+        :type vecs: Union[List[Union[str, np.ndarray, List[int]]]
         :param additional_fields: list of additional fields for the codes
+        :type additional_fields: List[Dict[str, Any]]
         """
         batch = []
         if type(vecs) is not list and type(vecs) is not np.ndarray:
@@ -274,8 +284,11 @@ class ElasticHash:
         A code can also be represented as a list or numpy array of 4 integer values.
 
         :param id: id of the document to be updated
+        :type id: int
         :param vec: the new binary code of length 256, or represented as 4 integers
+        :type vec: Union[str, np.ndarray, List[int]]
         :param additional_fields: a dictionary of field name and value pairs that should also be stored in the index
+        :type additional_fields: Dict[str, Any]
         """
         if additional_fields is not None and type(additional_fields) is not dict:
             raise TypeError("Additional fields need to be a dictionary")
@@ -286,21 +299,26 @@ class ElasticHash:
             doc.update(additional_fields)
         self.es.update(index=self.index_name, id=id, doc=doc)
 
-    def search(self, vec: Union[str, np.ndarray, List[int]]) -> Dict:
+    def search(self, vec: Union[str, np.ndarray, List[int]], size: int = None) -> ObjectApiResponse[Any]:
         """
         Search a document with the given code in the index. The code needs to be 256 bits long (0 or 1). It can be
         either string, list of int or numpy array.
         A code can also be represented as a list or numpy array of 4 integer values.
 
         :param vec: a binary code of length 256, or represented as 4 integers
-        :param additional_fields: a dictionary of field name and value pairs that should also be stored in the index
+        :type vec: Union[str, np.ndarray, List[int]]
+        :param size: number of hits to return (default: 10)
+        :type size: int
+        :return: the search result returned by Elasticsearch
         """
+        if type(vec) == np.ndarray and vec.ndim == 2:
+            vec = vec.flatten()
         if not self.is_decorrelated:
             logger.warning("Permutations of binary codes are not optimal. Please call decorrelate() before searching.")
         fields = self._get_fields(vec)
         fields.update({"script_name": self.script_name, "nbs_index_name": self.nbs_index_name})
         query = query_json(fields)  # n t_query.substitute(**fields)
-        result = self.es.search(index=self.index_name, query=query)
+        result = self.es.search(index=self.index_name, query=query, size=size)
         return result
 
     def decorrelate(self, plot_dir: str = None, num_samples: int = None):
@@ -332,6 +350,9 @@ class ElasticHash:
 
         codes = code_array(codes)
         corr = correlation(codes)
+        num_invalid = count_masked(np.all(corr == corr[0, :], axis=0))
+        if num_invalid > 0:
+            logger.warning("Could not compute correlation for %d bits" % num_invalid)
         perm = compute_perm(corr)
 
         if len(perm) == 0:

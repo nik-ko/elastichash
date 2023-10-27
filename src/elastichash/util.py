@@ -3,10 +3,12 @@ import numpy as np
 import seaborn as sns
 from bitstring import BitArray
 from itertools import combinations
+
+from elastic_transport import ObjectApiResponse
 from matplotlib import pyplot as plt
 from networkx.algorithms.community.kernighan_lin import kernighan_lin_bisection as kl
 from numpy.ma import masked_invalid, corrcoef
-from typing import List, Optional, Union, Dict
+from typing import List, Union, Dict, Any
 
 
 def binstr2int(s: str) -> int:
@@ -50,7 +52,7 @@ def binstr2uint(s: str) -> int:
 
 def nbs_masks(binstr_len: int = 16, d: int = 2) -> List[np.uint16]:
     """
-    Generate mask for binary strings of length `l` and maximum Hamming distance `d`
+    Generate mask for binary strings of length ``l`` and maximum Hamming distance ``d``
 
     :param binstr_len: length of binary string
     :param d: Hamming distance
@@ -84,7 +86,7 @@ def subcodes2bincode(item: Dict[str, int], perm: List[int] = None) -> np.ndarray
     Converts subcode strings of length 64 to binary string and concatenates them to a binary string of length 256.
     Optionally a permutation can be applied to this string.
 
-    :param item: Dict with fields r0, r1, r2, r3 containing subcodes as int
+    :param item: Dict with fields ``r0``, ``r1``, ``r2``, ``r3`` containing subcodes as int
     :param perm: List of 256 indices for permuting the binary code
     :return: Binary code as numpy array
     """
@@ -95,20 +97,21 @@ def subcodes2bincode(item: Dict[str, int], perm: List[int] = None) -> np.ndarray
     return code
 
 
-def kl_partition(g: nx.Graph, partition_len: int):
+def kl_partition(g: nx.Graph, partition_len: int, num_nodes: int):
     """
     Recursively applies KL algorithm to partition a graph into two partitions until partition does not contain more than
-    `partition_len` elements-
+    ``partition_len`` elements
 
     :param g: a list of weighted edges
     :param partition_len: number of edges in partition
+    :param num_nodes: total number of nodes in graph
     :return: list of partitions
     """
 
     def partition(g: nx.Graph, sc_weights: List[float]):
         if len(g) <= partition_len:
             sc_weights += [g.size(weight='weight')]
-            return list(g.nodes)
+            return [list(g.nodes)]
         else:
             a_nodes, b_nodes = kl(g, partition=None, weight='weight', seed=42, max_iter=256)
             a = nx.subgraph_view(g, filter_node=lambda x: x in a_nodes)
@@ -116,8 +119,21 @@ def kl_partition(g: nx.Graph, partition_len: int):
             return partition(a, sc_weights) + partition(b, sc_weights)
 
     sc_weights = []
-    p = list(map(int, partition(g, sc_weights)))
-    return p, sc_weights
+    unassigned_nodes = set(range(num_nodes))
+    partitions = partition(g, sc_weights)
+
+    # if not all nodes are partitioned, fill partitions with remaining nodes
+    for nodes in partitions:
+        unassigned_nodes -= set(nodes)
+    for current_partition in partitions:
+        if len(unassigned_nodes) > 0:
+            current_partition_len = len(current_partition)
+            fill_nodes = [unassigned_nodes.pop() for _ in range(partition_len - current_partition_len)]
+            current_partition += fill_nodes
+        else:
+            break
+    permutation = [int(node) for partition in partitions for node in partition]
+    return permutation, sc_weights
 
 
 def code_array(codes: List[np.ndarray[np.int8]]):
@@ -143,13 +159,15 @@ def correlation(codes: np.ndarray[np.int8]):
 
 def weighted_edges(corr: np.ndarray):
     """
-    Extract positive weighted edges from a correlation matrix and return a list of edges (x, y, weight)
+    Extract positive weighted edges from a correlation matrix and return a list of edges (`x`, `y`, `weight`)
 
     :param corr: correlation matrix
     :type corr: np.ndarray[np.float]
     :return: List[Tuple]
     :rtype:
     """
+    # corr_clean = corr.data.copy()
+    # corr_clean[corr.mask] = 0  # Set no correlation for invalid correlation values
     tri = np.tril(corr, -1)
     y, x = np.where(tri > 0)
     new_tri = 1 - tri
@@ -160,18 +178,19 @@ def weighted_edges(corr: np.ndarray):
 def compute_perm(corr: np.ndarray, sc_len: int = 16):
     """
     Computes a better permutation of bits for a binary code based on a correlation matrix by applying the Kernighan–Lin
-    algorithm. The bits are decorrelated between partitions (subcodes) of length `sc_len`.
+    algorithm. The bits are decorrelated between partitions (subcodes) of length ``sc_len``.
 
     :param corr: correlation matrix
-    :type corr: np.ndarray[np.float]
+    :type corr: np.ndarray[float]
     :param sc_len: length of subcodes
     :type sc_len: int
     :return: a better bit permutation
     :rtype: List[int]
     """
     g = nx.Graph()
-    g.add_weighted_edges_from(weighted_edges(corr))
-    p, _ = kl_partition(g, sc_len)
+    we = weighted_edges(corr)
+    g.add_weighted_edges_from(we)
+    p, _ = kl_partition(g, sc_len, len(corr))
     return p
 
 
@@ -196,3 +215,27 @@ def plot_hist(codes: np.ndarray[np.int8], output_path="./counts.png"):
     plt.legend((p1[0], p2[0]), ('1\'s', '0\'s'))
     plt.plot()
     plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
+
+
+def parse_dists(es_result: ObjectApiResponse, normalize=False):
+    scores = []
+    for item in es_result["hits"]["hits"]:
+        score = float(item["_source"]["_score"])
+        if normalize:
+            score /= 256
+        scores.append(score)
+    return scores
+
+
+def parse_vals(es_result: ObjectApiResponse, field_name: str):
+    field_vals = []
+    for item in es_result["hits"]["hits"]:
+        field_vals.append(item["_source"][field_name])
+    return field_vals
+
+
+def in_results(k: str, val: Any, res: Dict):
+    for item in res["hits"]["hits"]:
+        if item["_source"][k] == val:
+            return True
+    return False

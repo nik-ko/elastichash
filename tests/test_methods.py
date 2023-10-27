@@ -6,8 +6,8 @@ from random import choices
 from time import sleep
 
 from elastichash import ElasticHash
-from helpers import in_results, get_es_url_from_env
-from elastichash.util import int2binstr
+from helpers import get_es_url_from_env
+from elastichash.util import int2binstr, in_results
 
 
 class ElasticHashMethods(unittest.TestCase):
@@ -75,6 +75,7 @@ class ElasticHashMethods(unittest.TestCase):
         self.eh.add_bulk(codes, additional_fields=data)
         sleep(10)
         for code, uid in zip(codes, uids):
+            search_code = code
             search_code = code
             results = self.eh.search(search_code)
             self.assertTrue(in_results("uuid", uid, results))
