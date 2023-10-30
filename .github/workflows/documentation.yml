@@ -4,9 +4,7 @@ on:
   push: #, pull_request, workflow_dispatch]
     paths:
       - doc/**
-      - src/elastichash.py
-      - src/util.py
-
+      - src/**
 
 permissions:
   contents: write
