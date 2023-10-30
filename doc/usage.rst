@@ -8,7 +8,7 @@ Use the following methods to fill, update, reset and search the index.
 .. autoclass:: ElasticHash
    :members:
 
-Some useful methods for parsing results.
+Extract scores from ES result:
 
 .. currentmodule:: elastichash.util
 

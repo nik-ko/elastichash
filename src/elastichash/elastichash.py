@@ -38,6 +38,7 @@ class ElasticHash:
         :param radius: radius for subcode, defaults to 2
         :type radius: int
         """
+        self.radius = radius
         self.num_lines_per_request = 500
         self.num_decorrelate = 10000
         self.es = es
@@ -60,7 +61,6 @@ class ElasticHash:
         self.subcode_len_short = 16
         self._remove_blocks(self.index_name)
         self.is_decorrelated = False
-        self.radius = radius
 
     def _init_perm(self):
         self.perm_long = range(256)
