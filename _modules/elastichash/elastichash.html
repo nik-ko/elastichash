@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="Python" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>elastichash.elastichash &mdash; elastichash 0.1.5 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=5dc23c08"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            elastichash
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../approach.html">Approach</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">elastichash</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">elastichash.elastichash</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for elastichash.elastichash</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pickle</span> <span class="k">as</span> <span class="nn">pkl</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">urllib3</span>
+<span class="kn">from</span> <span class="nn">elastic_transport</span> <span class="kn">import</span> <span class="n">ObjectApiResponse</span>
+<span class="kn">from</span> <span class="nn">elasticsearch</span> <span class="kn">import</span> <span class="n">Elasticsearch</span>
+<span class="kn">from</span> <span class="nn">elasticsearch.helpers</span> <span class="kn">import</span> <span class="n">scan</span><span class="p">,</span> <span class="n">bulk</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">numpy.ma</span> <span class="kn">import</span> <span class="n">count_masked</span>
+
+<span class="kn">from</span> <span class="nn">elastichash.templates</span> <span class="kn">import</span> <span class="n">index_json</span><span class="p">,</span> <span class="n">query_json</span>
+<span class="kn">from</span> <span class="nn">elastichash.util</span> <span class="kn">import</span> <span class="n">get_nbs</span><span class="p">,</span> <span class="n">nbs_masks</span><span class="p">,</span> <span class="n">binstr2uint</span><span class="p">,</span> <span class="n">binstr2int</span><span class="p">,</span> <span class="n">int2binstr</span><span class="p">,</span> <span class="n">correlation</span><span class="p">,</span> \
+    <span class="n">compute_perm</span><span class="p">,</span> <span class="n">subcodes2bincode</span><span class="p">,</span> <span class="n">plot_hist</span><span class="p">,</span> <span class="n">plot_corr</span><span class="p">,</span> <span class="n">code_array</span>
+
+<span class="n">urllib3</span><span class="o">.</span><span class="n">disable_warnings</span><span class="p">(</span><span class="n">urllib3</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InsecureRequestWarning</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">(</span><span class="s1">&#39;elastichash&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ElasticHash">
+<a class="viewcode-back" href="../../usage.html#elastichash.ElasticHash">[docs]</a>
+<span class="k">class</span> <span class="nc">ElasticHash</span><span class="p">:</span>
+<div class="viewcode-block" id="ElasticHash.__init__">
+<a class="viewcode-back" href="../../usage.html#elastichash.ElasticHash.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">es</span><span class="p">:</span> <span class="n">Elasticsearch</span><span class="p">,</span> <span class="n">additional_fields</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;image_path&quot;</span><span class="p">],</span> <span class="n">index_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;eh&#39;</span><span class="p">,</span>
+                 <span class="n">shards</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">replicas</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extend Elasticsearch for efficient similarity search based on binary codes.</span>
+
+<span class="sd">        :param es: instance of a :class:`elasticsearch.Elasticsearch` client</span>
+<span class="sd">        :type es: :class:`elasticsearch.Elasticsearch`</span>
+<span class="sd">        :param additional_fields: list of additional fields used in the index, defaults to ``[&quot;image_path&quot;]``</span>
+<span class="sd">        :type additional_fields: List[str]</span>
+<span class="sd">        :param index_prefix: a prefix used for ElasticHash indices and functions, defaults to ``es``</span>
+<span class="sd">        :type index_prefix: str</span>
+<span class="sd">        :param shards: number of shards for ElasticHash indices</span>
+<span class="sd">        :type shards: int</span>
+<span class="sd">        :param replicas: number of replicas for ElasticHash indices</span>
+<span class="sd">        :type replicas: int</span>
+<span class="sd">        :param radius: radius for subcode, defaults to 2</span>
+<span class="sd">        :type radius: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="n">radius</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_lines_per_request</span> <span class="o">=</span> <span class="mi">500</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_decorrelate</span> <span class="o">=</span> <span class="mi">10000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span> <span class="o">=</span> <span class="n">es</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_perm</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-nbs&quot;</span> <span class="o">%</span> <span class="n">index_prefix</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-retrieval&quot;</span> <span class="o">%</span> <span class="n">index_prefix</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-hd64&quot;</span> <span class="o">%</span> <span class="n">index_prefix</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">settings</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;number_of_replicas&quot;</span><span class="p">:</span> <span class="n">replicas</span><span class="p">,</span> <span class="s2">&quot;number_of_shards&quot;</span><span class="p">:</span> <span class="n">shards</span><span class="p">}}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_fields</span> <span class="o">=</span> <span class="n">additional_fields</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_hdist</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_create_index</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_create_nbs_index</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bincode_len</span> <span class="o">=</span> <span class="mi">256</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subcode_len</span> <span class="o">=</span> <span class="mi">64</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subcode_len_short</span> <span class="o">=</span> <span class="mi">16</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remove_blocks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_decorrelated</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_init_perm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">perm_long</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">perm_short</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_fields</span><span class="p">:</span>
+            <span class="n">data_fields</span> <span class="o">=</span> <span class="p">{</span><span class="n">field_name</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;keyword&quot;</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span> <span class="k">for</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_fields</span><span class="p">}</span>
+            <span class="n">mappings</span> <span class="o">=</span> <span class="n">index_json</span><span class="p">(</span><span class="n">data_fields</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mappings</span> <span class="o">=</span> <span class="n">index_json</span><span class="p">({})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">,</span> <span class="n">mappings</span><span class="o">=</span><span class="n">mappings</span><span class="p">,</span> <span class="n">settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_nbs_index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;properties&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;nbs&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;keyword&quot;</span><span class="p">},</span> <span class="p">}}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">,</span> <span class="n">mappings</span><span class="o">=</span><span class="n">mapping</span><span class="p">,</span> <span class="n">settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">)</span>
+        <span class="n">sc_len</span> <span class="o">=</span> <span class="mi">16</span>
+        <span class="n">num_neighbors</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">sc_len</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_neighbors</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">masks</span> <span class="o">=</span> <span class="n">nbs_masks</span><span class="p">(</span><span class="n">sc_len</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_neighbors</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_lines_per_request</span><span class="p">):</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_lines_per_request</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">end</span> <span class="k">if</span> <span class="n">end</span> <span class="o">&lt;=</span> <span class="n">num_neighbors</span> <span class="k">else</span> <span class="n">num_neighbors</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="n">ids</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_nbs_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">forcemerge</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;write&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_remove_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index_name</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">put_settings</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">index_name</span><span class="p">,</span>
+            <span class="n">body</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;blocks.write&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}})</span>
+
+    <span class="k">def</span> <span class="nf">_nbs_bulk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="p">{</span>
+                <span class="s2">&quot;_id&quot;</span><span class="p">:</span> <span class="nb">id</span><span class="p">,</span>
+                <span class="s2">&quot;nbs&quot;</span><span class="p">:</span> <span class="n">get_nbs</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">masks</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_add_nbs_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]):</span>
+        <span class="n">bulk</span><span class="p">(</span><span class="n">actions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_nbs_bulk</span><span class="p">(</span><span class="n">batch</span><span class="p">),</span> <span class="n">client</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_bulk_gen</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]):</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">b</span>
+
+    <span class="k">def</span> <span class="nf">_bulk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">index_name</span><span class="p">):</span>
+        <span class="n">bulk</span><span class="p">(</span><span class="n">actions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bulk_gen</span><span class="p">(</span><span class="n">batch</span><span class="p">),</span> <span class="n">client</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index_name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_hdist</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">hdist</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;lang&quot;</span><span class="p">:</span> <span class="s2">&quot;painless&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s1">&#39;64-Long.bitCount(params.subcode^doc[params.field].value)&#39;</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">put_script</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_name</span><span class="p">,</span> <span class="n">script</span><span class="o">=</span><span class="n">hdist</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">cat</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">raw</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;count&quot;</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">_save_codes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span>
+        <span class="n">num_docs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">()</span>
+        <span class="n">max_docs</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_decorrelate</span><span class="p">,</span> <span class="n">num_docs</span><span class="p">)</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="mi">1000</span>
+
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">batches</span> <span class="o">=</span> <span class="n">scan</span><span class="p">(</span>
+            <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span>
+            <span class="n">client</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="p">,</span>
+            <span class="n">scroll</span><span class="o">=</span><span class="s1">&#39;5m&#39;</span><span class="p">,</span>
+            <span class="n">query</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;function_score&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;match_all&quot;</span><span class="p">:</span> <span class="p">{}},</span> <span class="s2">&quot;random_score&quot;</span><span class="p">:</span> <span class="p">{}}}},</span>
+            <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">batches</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">max_docs</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;_source&quot;</span><span class="p">]</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s2">&quot;_id&quot;</span><span class="p">:</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;_id&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;r0&quot;</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;r0&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;r1&quot;</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;r1&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;r2&quot;</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;r2&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;r3&quot;</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;r3&quot;</span><span class="p">]})</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+        <span class="n">file</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_read_codes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">pkl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">subcodes2bincode</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update_perm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">temp_index_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span> <span class="o">+</span> <span class="s2">&quot;-temp&quot;</span>
+        <span class="c1"># Remove old index</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">temp_index_name</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_remove_blocks</span><span class="p">(</span><span class="n">temp_index_name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">temp_index_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;write&quot;</span><span class="p">,</span> <span class="n">error_trace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">wait_for_active_shards</span><span class="o">=</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">temp_index_name</span><span class="p">,</span>
+                              <span class="n">timeout</span><span class="o">=</span><span class="s2">&quot;30m&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remove_blocks</span><span class="p">(</span><span class="n">temp_index_name</span><span class="p">)</span>
+
+        <span class="n">size</span> <span class="o">=</span> <span class="mi">1000</span>
+        <span class="n">batches</span> <span class="o">=</span> <span class="n">scan</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="p">,</span> <span class="n">scroll</span><span class="o">=</span><span class="s1">&#39;5m&#39;</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;match_all&quot;</span><span class="p">:</span> <span class="p">{}}},</span>
+                       <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">bulk</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">batches</span><span class="p">:</span>
+            <span class="nb">id</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;_id&quot;</span><span class="p">]</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;_source&quot;</span><span class="p">]</span>
+            <span class="n">binvec</span> <span class="o">=</span> <span class="n">subcodes2bincode</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+            <span class="n">fields</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fields</span><span class="p">(</span><span class="n">binvec</span><span class="p">)</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;_id&quot;</span><span class="p">:</span> <span class="nb">id</span><span class="p">,</span> <span class="s2">&quot;_op_type&quot;</span><span class="p">:</span> <span class="s2">&quot;update&quot;</span><span class="p">,</span> <span class="s2">&quot;_index&quot;</span><span class="p">:</span> <span class="n">temp_index_name</span><span class="p">,</span> <span class="s2">&quot;doc&quot;</span><span class="p">:</span> <span class="n">fields</span><span class="p">}</span>
+            <span class="n">bulk</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_lines_per_request</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_bulk</span><span class="p">(</span><span class="n">bulk</span><span class="p">,</span> <span class="n">temp_index_name</span><span class="p">)</span>
+                <span class="n">bulk</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bulk</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_bulk</span><span class="p">(</span><span class="n">bulk</span><span class="p">,</span> <span class="n">temp_index_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remove_blocks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">temp_index_name</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;write&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">temp_index_name</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="s2">&quot;30m&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remove_blocks</span><span class="p">(</span><span class="n">temp_index_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">temp_index_name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vec</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">vec</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">vec</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="n">binstr</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">int2binstr</span><span class="p">,</span> <span class="n">vec</span><span class="p">)))))</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">binstr</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">vec</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">vec</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">256</span><span class="p">:</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">vec</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Numpy array needs to have shape (256,) or (4,)&quot;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="o">==</span> <span class="mi">256</span><span class="p">:</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">vec</span><span class="p">)))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Binary string needs to have length 256&quot;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="n">binstr</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">int2binstr</span><span class="p">,</span> <span class="n">vec</span><span class="p">)))))</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">binstr</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="o">==</span> <span class="mi">256</span><span class="p">:</span>
+                <span class="n">binstr</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">vec</span><span class="p">))</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">binstr</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;List needs to have length 256 or 4&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Type of binary string needs to be either np.ndarray, string or List[int] of length 256 or 4&quot;</span><span class="p">)</span>
+
+        <span class="n">code64_str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">b</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">perm_short</span><span class="p">])))</span>
+        <span class="n">code256_str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">b</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">perm_long</span><span class="p">])))</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;f0&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">binstr2uint</span><span class="p">(</span><span class="n">code64_str</span><span class="p">[:</span><span class="mi">16</span><span class="p">])),</span>
+            <span class="s1">&#39;f1&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">binstr2uint</span><span class="p">(</span><span class="n">code64_str</span><span class="p">[</span><span class="mi">16</span><span class="p">:</span><span class="mi">32</span><span class="p">])),</span>
+            <span class="s1">&#39;f2&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">binstr2uint</span><span class="p">(</span><span class="n">code64_str</span><span class="p">[</span><span class="mi">32</span><span class="p">:</span><span class="mi">48</span><span class="p">])),</span>
+            <span class="s1">&#39;f3&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">binstr2uint</span><span class="p">(</span><span class="n">code64_str</span><span class="p">[</span><span class="mi">48</span><span class="p">:])),</span>
+            <span class="s1">&#39;r0&#39;</span><span class="p">:</span> <span class="n">binstr2int</span><span class="p">(</span><span class="n">code256_str</span><span class="p">[:</span><span class="mi">64</span><span class="p">]),</span>
+            <span class="s1">&#39;r1&#39;</span><span class="p">:</span> <span class="n">binstr2int</span><span class="p">(</span><span class="n">code256_str</span><span class="p">[</span><span class="mi">64</span><span class="p">:</span><span class="mi">128</span><span class="p">]),</span>
+            <span class="s1">&#39;r2&#39;</span><span class="p">:</span> <span class="n">binstr2int</span><span class="p">(</span><span class="n">code256_str</span><span class="p">[</span><span class="mi">128</span><span class="p">:</span><span class="mi">192</span><span class="p">]),</span>
+            <span class="s1">&#39;r3&#39;</span><span class="p">:</span> <span class="n">binstr2int</span><span class="p">(</span><span class="n">code256_str</span><span class="p">[</span><span class="mi">192</span><span class="p">:])</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">fields</span>
+
+<div class="viewcode-block" id="ElasticHash.add">
+<a class="viewcode-back" href="../../usage.html#elastichash.ElasticHash.add">[docs]</a>
+    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vec</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span> <span class="n">additional_fields</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a code to the index, optionally along with additional fields. The code needs to be 256 bits long (0 or 1).</span>
+<span class="sd">        A code can also be represented as a list or numpy array of 4 integer values.</span>
+<span class="sd">        It can be either string, list of int or numpy array.</span>
+
+<span class="sd">        Usage examples:</span>
+
+<span class="sd">            ``add_vec(code=&#39;010...0&#39;, additional_fields={&#39;image_path&#39;:&#39;/path/to/image.jpg&#39;)``</span>
+<span class="sd">            ``add_vec(code=[0,1,0,...,0])``</span>
+<span class="sd">            ``add_vec(np.array([0,1,0,...,0])``</span>
+<span class="sd">            ``add_vec(np.array([10,20,-10,-20])``</span>
+
+<span class="sd">        :param vec: a binary code of length 256, or represented as 4 integers</span>
+<span class="sd">        :type vec: Union[str, np.ndarray, List[int]]</span>
+<span class="sd">        :param additional_fields: a dictionary of field name and value pairs that should also be stored in the index</span>
+<span class="sd">        :type additional_fields: Dict[str, Any]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">additional_fields</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">additional_fields</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">dict</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Additional fields need to be a dictionary&quot;</span><span class="p">)</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fields</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">additional_fields</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fields</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">additional_fields</span><span class="p">)</span>
+        <span class="n">batch</span> <span class="o">=</span> <span class="p">[</span><span class="n">fields</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bulk</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ElasticHash.add_bulk">
+<a class="viewcode-back" href="../../usage.html#elastichash.ElasticHash.add_bulk">[docs]</a>
+    <span class="k">def</span> <span class="nf">add_bulk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vecs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+                 <span class="n">additional_fields</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a list or numpy array of codes, optionally together with a corresponding list of dictionaries with</span>
+<span class="sd">        additional fields. If a list of additional fields is given, it must have the same length as the list of codes.</span>
+<span class="sd">        A code can be either string, a list of int or numpy array.</span>
+
+<span class="sd">        :param vecs: a list of codes</span>
+<span class="sd">        :type vecs: Union[List[Union[str, np.ndarray, List[int]]]</span>
+<span class="sd">        :param additional_fields: list of additional fields for the codes</span>
+<span class="sd">        :type additional_fields: List[Dict[str, Any]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">vecs</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">list</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">vecs</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Codes need to be a lists or numpy array&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">additional_fields</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">additional_fields</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Additional fields need to be a list of dictionaries&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vecs</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">additional_fields</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Each code needs a (possibly empty) dict of additional fields, or none&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">vec</span><span class="p">,</span> <span class="n">fields</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">vecs</span><span class="p">,</span> <span class="n">additional_fields</span><span class="p">):</span>
+                <span class="n">doc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fields</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span>
+                <span class="n">doc</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
+                <span class="n">batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_fields</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="k">for</span> <span class="n">vec</span> <span class="ow">in</span> <span class="n">vecs</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bulk</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ElasticHash.update">
+<a class="viewcode-back" href="../../usage.html#elastichash.ElasticHash.update">[docs]</a>
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">vec</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="n">additional_fields</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Update a document in the index by its id. Updates the code or updates additional fields of the document, or both.</span>
+<span class="sd">        The new code needs to be 256 bits long (0 or 1). It can be either string, list of int or numpy array.</span>
+<span class="sd">        A code can also be represented as a list or numpy array of 4 integer values.</span>
+
+<span class="sd">        :param id: id of the document to be updated</span>
+<span class="sd">        :type id: int</span>
+<span class="sd">        :param vec: the new binary code of length 256, or represented as 4 integers</span>
+<span class="sd">        :type vec: Union[str, np.ndarray, List[int]]</span>
+<span class="sd">        :param additional_fields: a dictionary of field name and value pairs that should also be stored in the index</span>
+<span class="sd">        :type additional_fields: Dict[str, Any]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">additional_fields</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">additional_fields</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">dict</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Additional fields need to be a dictionary&quot;</span><span class="p">)</span>
+        <span class="n">doc</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">vec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">doc</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_fields</span><span class="p">(</span><span class="n">vec</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">additional_fields</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">doc</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">additional_fields</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="nb">id</span><span class="p">,</span> <span class="n">doc</span><span class="o">=</span><span class="n">doc</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ElasticHash.search">
+<a class="viewcode-back" href="../../usage.html#elastichash.ElasticHash.search">[docs]</a>
+    <span class="k">def</span> <span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vec</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ObjectApiResponse</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Search a document with the given code in the index. The code needs to be 256 bits long (0 or 1). It can be</span>
+<span class="sd">        either string, list of int or numpy array.</span>
+<span class="sd">        A code can also be represented as a list or numpy array of 4 integer values.</span>
+
+<span class="sd">        The `_score` value for a document :math:`d` in the results is a similarity score to the query vector :math:`q`</span>
+<span class="sd">        based on Hamming distance :math:`H`. It is the number of common bits, i.e. :math:`256-H(q,d)`.</span>
+
+<span class="sd">        Use :func:`util.parse_dists` to turn similarities into distances and or/normalize them.</span>
+
+<span class="sd">        :param vec: a binary code of length 256, or represented as 4 integers</span>
+<span class="sd">        :type vec: Union[str, np.ndarray, List[int]]</span>
+<span class="sd">        :param size: number of hits to return (default: 10)</span>
+<span class="sd">        :type size: int</span>
+<span class="sd">        :return: the search result returned by Elasticsearch</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="ow">and</span> <span class="n">vec</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">vec</span> <span class="o">=</span> <span class="n">vec</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_decorrelated</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Permutations of binary codes are not optimal. Please call decorrelate() before searching.&quot;</span><span class="p">)</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fields</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span>
+        <span class="n">fields</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;script_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_name</span><span class="p">,</span> <span class="s2">&quot;nbs_index_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">})</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">query_json</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>  <span class="c1"># n t_query.substitute(**fields)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="ElasticHash.decorrelate">
+<a class="viewcode-back" href="../../usage.html#elastichash.ElasticHash.decorrelate">[docs]</a>
+    <span class="k">def</span> <span class="nf">decorrelate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plot_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        After adding about 10,000 codes in the index the decorrelate method should be called. After rearranging the bit</span>
+<span class="sd">        positions search may be significantly faster. The bit distribution and correlation matrix are plotted if a</span>
+<span class="sd">        ``plot_dir`` is specified. The number of samples ``num_samples`` used for computing the correlation should not</span>
+<span class="sd">        be to high (i.e. not higher than 10,000 as correlation computation is carried out in memory). Based on the</span>
+<span class="sd">        correlation a better permutation for the bits is computed. The permutation is applied only for all documents in</span>
+<span class="sd">        the  index, or in case of interruption, none. This is achieved by using a temporary copy of the retrieval index.</span>
+<span class="sd">        This step is also needed to find increase performance on the short codes as these are the most discriminative</span>
+<span class="sd">        ones of the long codes. More details can be found in https://arxiv.org/abs/2305.04710</span>
+
+<span class="sd">        :param plot_dir: directory for correlation and bit distribution plots</span>
+<span class="sd">        :type plot_dir: str</span>
+<span class="sd">        :param num_samples: number of samples to use for computing the correlation matrix</span>
+<span class="sd">        :type num_samples: int</span>
+<span class="sd">        :return: True if decorrelation was successful, False otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">num_samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_decorrelate</span> <span class="o">=</span> <span class="n">num_samples</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;write&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_codes</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remove_blocks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span>
+        <span class="n">codes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_codes</span><span class="p">(</span><span class="n">tmp</span><span class="p">))</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting decorrelation...&quot;</span><span class="p">)</span>
+
+        <span class="n">codes</span> <span class="o">=</span> <span class="n">code_array</span><span class="p">(</span><span class="n">codes</span><span class="p">)</span>
+        <span class="n">corr</span> <span class="o">=</span> <span class="n">correlation</span><span class="p">(</span><span class="n">codes</span><span class="p">)</span>
+        <span class="n">num_invalid</span> <span class="o">=</span> <span class="n">count_masked</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">corr</span> <span class="o">==</span> <span class="n">corr</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">num_invalid</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not compute correlation for </span><span class="si">%d</span><span class="s2"> bits&quot;</span> <span class="o">%</span> <span class="n">num_invalid</span><span class="p">)</span>
+        <span class="n">perm</span> <span class="o">=</span> <span class="n">compute_perm</span><span class="p">(</span><span class="n">corr</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">perm</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">corr</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_init_perm</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not compute correlation. Bit-permutation stays the same as before.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">perm_long</span> <span class="o">=</span> <span class="n">perm</span>
+
+        <span class="k">if</span> <span class="n">plot_dir</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">plot_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">plot_hist</span><span class="p">(</span><span class="n">codes</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plot_dir</span><span class="p">,</span> <span class="s2">&quot;counts.png&quot;</span><span class="p">))</span>
+            <span class="n">plot_corr</span><span class="p">(</span><span class="n">corr</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plot_dir</span><span class="p">,</span> <span class="s2">&quot;corr.png&quot;</span><span class="p">))</span>
+
+        <span class="n">num_subcodes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bincode_len</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">subcode_len</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">perm_short</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">subcode_len_short</span><span class="p">]</span> <span class="o">+</span> \
+                          <span class="n">perm</span><span class="p">[</span><span class="n">num_subcodes</span><span class="p">:</span><span class="n">num_subcodes</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">subcode_len_short</span><span class="p">]</span> <span class="o">+</span> \
+                          <span class="n">perm</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_subcodes</span><span class="p">:</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_subcodes</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">subcode_len_short</span><span class="p">]</span> <span class="o">+</span> \
+                          <span class="n">perm</span><span class="p">[</span><span class="mi">3</span> <span class="o">*</span> <span class="n">num_subcodes</span><span class="p">:</span><span class="mi">3</span> <span class="o">*</span> <span class="n">num_subcodes</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">subcode_len_short</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_perm</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_decorrelated</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;All codes decorrelated.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="ElasticHash.reset">
+<a class="viewcode-back" href="../../usage.html#elastichash.ElasticHash.reset">[docs]</a>
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Delete and recreate all indices. This will also delete all documents in the retrieval index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_remove_blocks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">])</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_remove_blocks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_hdist</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_nbs_index</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">es</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs_index_name</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;write&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_index</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Nikolaus Korfhage.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

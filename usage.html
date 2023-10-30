@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="Python" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage &mdash; elastichash 0.1.5 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5dc23c08"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Approach" href="approach.html" />
+    <link rel="prev" title="Quickstart" href="quickstart.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            elastichash
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#elastichash.ElasticHash"><code class="docutils literal notranslate"><span class="pre">ElasticHash</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#elastichash.ElasticHash.__init__"><code class="docutils literal notranslate"><span class="pre">ElasticHash.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#elastichash.ElasticHash.add"><code class="docutils literal notranslate"><span class="pre">ElasticHash.add()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#elastichash.ElasticHash.add_bulk"><code class="docutils literal notranslate"><span class="pre">ElasticHash.add_bulk()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#elastichash.ElasticHash.decorrelate"><code class="docutils literal notranslate"><span class="pre">ElasticHash.decorrelate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#elastichash.ElasticHash.reset"><code class="docutils literal notranslate"><span class="pre">ElasticHash.reset()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#elastichash.ElasticHash.search"><code class="docutils literal notranslate"><span class="pre">ElasticHash.search()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#elastichash.ElasticHash.update"><code class="docutils literal notranslate"><span class="pre">ElasticHash.update()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#elastichash.util.parse_scores"><code class="docutils literal notranslate"><span class="pre">parse_scores()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="approach.html">Approach</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">elastichash</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h1>
+<p>Use the following methods to fill, update, reset and search the index.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="elastichash.ElasticHash">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">elastichash.</span></span><span class="sig-name descname"><span class="pre">ElasticHash</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">es</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Elasticsearch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_fields</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">['image_path']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'eh'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shards</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">replicas</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/elastichash/elastichash.html#ElasticHash"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.ElasticHash" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="elastichash.ElasticHash.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">es</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Elasticsearch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_fields</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">['image_path']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'eh'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shards</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">replicas</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/elastichash/elastichash.html#ElasticHash.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.ElasticHash.__init__" title="Link to this definition"></a></dt>
+<dd><p>Extend Elasticsearch for efficient similarity search based on binary codes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>es</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">elasticsearch.Elasticsearch</span></code>) -- instance of a <code class="xref py py-class docutils literal notranslate"><span class="pre">elasticsearch.Elasticsearch</span></code> client</p></li>
+<li><p><strong>additional_fields</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) -- list of additional fields used in the index, defaults to <code class="docutils literal notranslate"><span class="pre">[&quot;image_path&quot;]</span></code></p></li>
+<li><p><strong>index_prefix</strong> (<em>str</em>) -- a prefix used for ElasticHash indices and functions, defaults to <code class="docutils literal notranslate"><span class="pre">es</span></code></p></li>
+<li><p><strong>shards</strong> (<em>int</em>) -- number of shards for ElasticHash indices</p></li>
+<li><p><strong>replicas</strong> (<em>int</em>) -- number of replicas for ElasticHash indices</p></li>
+<li><p><strong>radius</strong> (<em>int</em>) -- radius for subcode, defaults to 2</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="elastichash.ElasticHash.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_fields</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/elastichash/elastichash.html#ElasticHash.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.ElasticHash.add" title="Link to this definition"></a></dt>
+<dd><p>Add a code to the index, optionally along with additional fields. The code needs to be 256 bits long (0 or 1).
+A code can also be represented as a list or numpy array of 4 integer values.
+It can be either string, list of int or numpy array.</p>
+<p>Usage examples:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">add_vec(code='010...0',</span> <span class="pre">additional_fields={'image_path':'/path/to/image.jpg')</span></code>
+<code class="docutils literal notranslate"><span class="pre">add_vec(code=[0,1,0,...,0])</span></code>
+<code class="docutils literal notranslate"><span class="pre">add_vec(np.array([0,1,0,...,0])</span></code>
+<code class="docutils literal notranslate"><span class="pre">add_vec(np.array([10,20,-10,-20])</span></code></p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vec</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>np.ndarray</em><em>, </em><em>List</em><em>[</em><em>int</em><em>]</em><em>]</em>) -- a binary code of length 256, or represented as 4 integers</p></li>
+<li><p><strong>additional_fields</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) -- a dictionary of field name and value pairs that should also be stored in the index</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="elastichash.ElasticHash.add_bulk">
+<span class="sig-name descname"><span class="pre">add_bulk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vecs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_fields</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/elastichash/elastichash.html#ElasticHash.add_bulk"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.ElasticHash.add_bulk" title="Link to this definition"></a></dt>
+<dd><p>Add a list or numpy array of codes, optionally together with a corresponding list of dictionaries with
+additional fields. If a list of additional fields is given, it must have the same length as the list of codes.
+A code can be either string, a list of int or numpy array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vecs</strong> (<em>Union</em><em>[</em><em>List</em><em>[</em><em>Union</em><em>[</em><em>str</em><em>, </em><em>np.ndarray</em><em>, </em><em>List</em><em>[</em><em>int</em><em>]</em><em>]</em><em>]</em>) -- a list of codes</p></li>
+<li><p><strong>additional_fields</strong> (<em>List</em><em>[</em><em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em>) -- list of additional fields for the codes</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="elastichash.ElasticHash.decorrelate">
+<span class="sig-name descname"><span class="pre">decorrelate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plot_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/elastichash/elastichash.html#ElasticHash.decorrelate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.ElasticHash.decorrelate" title="Link to this definition"></a></dt>
+<dd><p>After adding about 10,000 codes in the index the decorrelate method should be called. After rearranging the bit
+positions search may be significantly faster. The bit distribution and correlation matrix are plotted if a
+<code class="docutils literal notranslate"><span class="pre">plot_dir</span></code> is specified. The number of samples <code class="docutils literal notranslate"><span class="pre">num_samples</span></code> used for computing the correlation should not
+be to high (i.e. not higher than 10,000 as correlation computation is carried out in memory). Based on the
+correlation a better permutation for the bits is computed. The permutation is applied only for all documents in
+the  index, or in case of interruption, none. This is achieved by using a temporary copy of the retrieval index.
+This step is also needed to find increase performance on the short codes as these are the most discriminative
+ones of the long codes. More details can be found in <a class="reference external" href="https://arxiv.org/abs/2305.04710">https://arxiv.org/abs/2305.04710</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>plot_dir</strong> (<em>str</em>) -- directory for correlation and bit distribution plots</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em>) -- number of samples to use for computing the correlation matrix</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if decorrelation was successful, False otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="elastichash.ElasticHash.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/elastichash/elastichash.html#ElasticHash.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.ElasticHash.reset" title="Link to this definition"></a></dt>
+<dd><p>Delete and recreate all indices. This will also delete all documents in the retrieval index.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="elastichash.ElasticHash.search">
+<span class="sig-name descname"><span class="pre">search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ObjectApiResponse</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/elastichash/elastichash.html#ElasticHash.search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.ElasticHash.search" title="Link to this definition"></a></dt>
+<dd><p>Search a document with the given code in the index. The code needs to be 256 bits long (0 or 1). It can be
+either string, list of int or numpy array.
+A code can also be represented as a list or numpy array of 4 integer values.</p>
+<p>The <cite>_score</cite> value for a document <span class="math notranslate nohighlight">\(d\)</span> in the results is a similarity score to the query vector <span class="math notranslate nohighlight">\(q\)</span>
+based on Hamming distance <span class="math notranslate nohighlight">\(H\)</span>. It is the number of common bits, i.e. <span class="math notranslate nohighlight">\(256-H(q,d)\)</span>.</p>
+<p>Use <code class="xref py py-func docutils literal notranslate"><span class="pre">util.parse_dists()</span></code> to turn similarities into distances and or/normalize them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vec</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>np.ndarray</em><em>, </em><em>List</em><em>[</em><em>int</em><em>]</em><em>]</em>) -- a binary code of length 256, or represented as 4 integers</p></li>
+<li><p><strong>size</strong> (<em>int</em>) -- number of hits to return (default: 10)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>the search result returned by Elasticsearch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="elastichash.ElasticHash.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_fields</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/elastichash/elastichash.html#ElasticHash.update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.ElasticHash.update" title="Link to this definition"></a></dt>
+<dd><p>Update a document in the index by its id. Updates the code or updates additional fields of the document, or both.
+The new code needs to be 256 bits long (0 or 1). It can be either string, list of int or numpy array.
+A code can also be represented as a list or numpy array of 4 integer values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>id</strong> (<em>int</em>) -- id of the document to be updated</p></li>
+<li><p><strong>vec</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>np.ndarray</em><em>, </em><em>List</em><em>[</em><em>int</em><em>]</em><em>]</em>) -- the new binary code of length 256, or represented as 4 integers</p></li>
+<li><p><strong>additional_fields</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) -- a dictionary of field name and value pairs that should also be stored in the index</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<p>Extract scores from ES result:</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="elastichash.util.parse_scores">
+<span class="sig-prename descclassname"><span class="pre">elastichash.util.</span></span><span class="sig-name descname"><span class="pre">parse_scores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">es_result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ObjectApiResponse</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/elastichash/util.html#parse_scores"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#elastichash.util.parse_scores" title="Link to this definition"></a></dt>
+<dd><p>Extracts <cite>_score</cite> values from Elasticsearch result. Normalization can be applied and the similarity score can be
+turned into a distance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>es_result</strong> (<em>ObjectApiResponse</em>) -- Elasticsearch result (JSON dict)</p></li>
+<li><p><strong>normalize</strong> (<em>bool</em>) -- if score should be normalized</p></li>
+<li><p><strong>distance</strong> (<em>bool</em>) -- if similarity score should be turned into a distance</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="Quickstart" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="approach.html" class="btn btn-neutral float-right" title="Approach" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Nikolaus Korfhage.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
