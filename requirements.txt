@@ -6,4 +6,4 @@ matplotlib~=3.7.1
 urllib3~=1.26.16
 seaborn~=0.12.2
 fonttools>=4.43.0 
-pillow>=10.2.0 
+pillow>=10.3.0 
